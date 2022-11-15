@@ -1,0 +1,220 @@
+# Hybrid type-I InAs/GaAs and type-II GaSb/GaAs Quantum Dot Structure with enhanced Photoluminescence
+# Defining Parameters
+$Width = 50  # Total width = 30nm
+$XYGRID = 0.6 # X-Y Meshing
+$ZGRID = 0.4 # Z Meshing
+$NUME = 4      # number of electron states
+$NUMH = 4      # number of hole states
+#$KP6 = 0       # use either 6-band k.p model for holes (1) or 1-band effective mass model (0) 
+#$KP8 = 0       # use either 8-band k.p model for electrons and holes (1) or 1-band effective mass model (0)
+$AVS = 1       # 2D output in AVS (1) or Origin (0) format
+
+global{ 
+   simulate3D{}
+   temperature  = 300
+   substrate{ name = "GaAs" }
+periodic{ x = yes y = yes z=no}
+   crystal_zb{ x_hkl = [1, 0, 0] y_hkl = [0, 1, 0] } 
+# Defines orientation of simulation domain (Growth Direction: z = [001])
+}<>
+
+output{
+#if $AVS format2D = AvsAscii
+#if $ORIGIN format2D = Origin
+   format3D = AvsAscii                               # No Origin format available (default: AvsBinary)
+   section2D{ name = "side"  y = 0 }                   # 2D cross section along XZ plane (at dot center)
+   section1D{ name = "z" x = 0 y = 0 }               # 1D cross section along growth direction (at dot center)
+   section1D{ name = "x" y = 0 z = 2} # 1D cross section along x direction (at dot base)
+}<>
+
+grid{
+   xgrid{
+      line{ pos = -$Width      spacing = 15*$XYGRID}
+      line{ pos = -22           spacing = 7*$XYGRID}
+      line{ pos = 22           spacing = 7*$XYGRID}
+      line{ pos = $Width       spacing = 15*$XYGRID}
+   }
+
+   ygrid{
+      line{ pos = -$Width      spacing = 15*$XYGRID}
+      line{ pos = -22          spacing = 7*$XYGRID}
+      line{ pos = 22           spacing = 7*$XYGRID}
+      line{ pos = $Width       spacing = 15*$XYGRID}
+   }
+
+   zgrid{
+      line{ pos = 0        spacing = 15*$ZGRID}
+      line{ pos = 180        spacing = 7*$ZGRID}
+      line{ pos = 250        spacing = 7*$ZGRID}
+      line{ pos = 300           spacing = 15*$ZGRID}
+   }
+}<>
+
+structure{  
+output_material_index{}
+region{
+everywhere{}
+binary{ name = "GaAs"}
+contact{ name = "dummy"}
+}
+
+# 50nm GaAs Cap Layer
+region{
+cuboid{ x = [-$Width, $Width] y = [-$Width, $Width] z = [200,255] }
+binary{name="GaAs"}
+}  
+region{
+obelisk{
+base_x = [-20,20]
+base_y = [-20,20]
+base_z = [255,255]
+top_x = [-16,16]
+top_y = [-16,16]
+top_z = [281,281]
+}
+binary{name="GaAs"}
+}
+
+# GaSb Quantum Dot
+region{
+obelisk{
+base_x = [-18,18]
+base_y = [-18,18]
+base_z = [216,216]
+top_x = [-16,16]
+top_y = [-16,16]
+top_z = [231,231]
+}
+binary{name="GaSb"}
+}
+
+# 5nm GaAs Spacer Layer
+region{
+cuboid{ x = [-$Width, $Width] y = [-$Width, $Width] z = [200,205] }
+binary{name="GaAs"}
+}  
+region{
+obelisk{
+base_x = [-22,22]
+base_y = [-22,22]
+base_z = [205,205]
+top_x = [-18,18]
+top_y = [-18,18]
+top_z = [216,216]
+}
+binary{name="GaAs"}
+}
+
+# InAs Quantum Dot
+region{
+obelisk{
+base_x = [-20,20]
+base_y = [-20,20]
+base_z = [200,200]
+top_x = [-18,18]
+top_y = [-18,18]
+top_z = [211,211]
+}
+binary{name="InAs"}
+}
+
+# 0nm to 200nm GaAs Buffer
+region{
+cuboid{ x = [-$Width, $Width] y = [-$Width, $Width] z = [0,200] }
+binary{ name="GaAs" }
+}
+
+}<>
+
+
+classical{
+   Gamma{}
+   LH{}
+   HH{}
+   SO{}
+
+   output_bandedges{}
+}<>
+
+
+quantum{
+region{
+name = "dot"
+x = [-50, 50]
+y = [-50, 50]
+z = [200, 281]
+boundary{ x = dirichlet y = dirichlet z = dirichlet }
+#if $ELEC1 Gamma{ num_ev = $NUME } 
+#if $HOLE1 HH{ num_ev = $NUMH }
+#if $KP6   kp_6band{ num_ev = $NUMH }
+#if $KP8   kp_8band{ num_electrons = $NUME num_holes = $NUMH }
+
+      kp_8band{ 
+        num_electrons=6 num_holes=6
+      #  #lapack {}
+       arpack_inv {}
+#        kp_parameters{
+#           rescale_S_to = 1.0  # in order to avoid spurious solution
+#        }
+      spurious_handling = [ 0.0, 1.0, -1.0, 1.0, 0.0, 1.0 ] # to be consistent with older versions of nextnano++
+
+ #     linear_solver{
+ #                 iterations = 10000
+  #                }
+
+      }  
+
+      output_wavefunctions{  amplitudes = no  probabilities = yes  max_num = $NUME+$NUMH }
+   
+}
+}<>
+
+
+poisson{
+   output_potential{}
+}<>
+
+
+
+contacts{
+fermi{ name = "dummy" bias = 0.0 } # only needed to define reference energy
+} <>
+
+strain{
+minimized_strain{}
+# pseudomorphic_strain{}
+# polarization_charges = yes
+growth_direction = [0,0,1]
+output_strain_tensor{
+simulation_system = yes
+}
+output_polarization_charges{}
+} <>
+
+optics{
+region {
+name = "dot"
+interband = yes
+intraband = yes
+polarization{
+name = "x"
+re = [1,0,0]
+}
+
+output_transitions = yes
+output_components = yes
+energy_min = 0.5
+energy_max = 2.0
+}
+}
+
+run{
+solve_strain{}
+solve_poisson{}
+solve_quantum{}
+calculate_optics{}
+# outer_iteration{}
+} <>
+
+
+
